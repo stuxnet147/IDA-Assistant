@@ -30,8 +30,8 @@ Launch IDA Pro and enable the "IDA Assistant" plugin from the "Edit" menu.
 - Continue the conversation with the assistant as needed, refining your queries and exploring different aspects of the binary analysis.
 
 ## Acknowledgments
-The system prompt used in this plugin was inspired by the AutoGPT project.
-The query functions were adapted from the Gepetto IDA Pro plugin.
+- The system prompt used in this plugin was inspired by the AutoGPT project.
+- The query functions were adapted from the Gepetto IDA Pro plugin.
 
 ## License
 This project is licensed under the MIT License.
