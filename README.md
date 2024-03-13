@@ -23,9 +23,9 @@ git clone https://github.com/yourusername/ida-assistant.git
 pip install anthropic
 ```
 
-Open the ida_assistant.py file and replace <YOUR API KEY> with your actual Anthropic API key.
-Copy the ida_assistant.py file to your IDA Pro plugins directory.
-Launch IDA Pro and enable the "IDA Assistant" plugin from the "Edit" menu.
+- Open the ida_assistant.py file and replace <YOUR API KEY> with your actual Anthropic API key.
+- Copy the ida_assistant.py file to your IDA Pro plugins directory.
+- Launch IDA Pro and enable the "IDA Assistant" plugin from the "Edit" menu.
 ## Usage
 - Press Alt+F1 or go to "Edit" > "Plugins" > "IDA Assistant" to open the assistant window.
 - Type your query or request in the input field and click "Send" or press Enter.
