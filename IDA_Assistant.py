@@ -26,7 +26,7 @@ class IDAAssistant(ida_idaapi.plugin_t):
         super(IDAAssistant, self).__init__()
         self.model = "claude-3-sonnet-20240229"
         self.client = anthropic.Anthropic(
-            api_key="<YOUR API KEY>"
+            api_key="YOUR_API_KEY"
         )
         self.chat_history = []
         self.message_history = []
@@ -44,7 +44,7 @@ class IDAAssistant(ida_idaapi.plugin_t):
     def add_assistant_message(self, message):
         self.chat_history.append(f"<b>Assistant:</b> {message}") 
         
-    def query_model(self, query, cb, additional_model_options=None):
+    def query_model(self, role, query, cb, additional_model_options=None):
         if additional_model_options is None:
             additional_model_options = {}
         
@@ -60,45 +60,50 @@ class IDAAssistant(ida_idaapi.plugin_t):
         Optimize your responses to be concise yet informative.
         User assistance is the top priority. Always strive to provide helpful information to the user.
         Limit your actions to the commands listed below.
+        Do not dynamically use the result of one command as an argument for another command.
+        Each command should be independently executable, and arguments should be explicitly provided.
+        You can list multiple commands sequentially, but they should not be structured to depend on the results of the previous commands.
 
         Commands:
-        1. Name: get_disassembly
-          - Description: Gets the dispassembly from start address to end address.
-          - Args: "start_address": "<address>", "end_address": "<address>"
-        2. Name: decompile
+        - Name: get_disassembly
+            - Description: Gets the disassembly from start address to end address.
+            - Args: "start_address": String, "end_address": String
+        - Name: get_disassembly_function
+            - Description: Gets the disassembly from start address to end address.
+            - Args: "name": String
+        - Name: decompile_address
             - Description: Decompile the function at the specified address.
-            - Args: "address": "<address>"
-        3. Name: rename_address
+            - Args: "address": String
+        - Name: decompile_function
+            - Description: Decompile the function at the specified address.
+            - Args: "name": String
+        - Name: rename_address
             - Description: Rename the address at the specified address.
-            - Args: "address": "<address>", "new_name": "<new_name>", "old_name": "<old_name>"
-        4. Name: get_function_start_end_address
+            - Args: "address": String, "new_name": String, "old_name": String
+        - Name: get_function_start_end_address
             - Description: Get the start and end address of the function at the specified address.
-            - Args: "address": "<address>"
-        5. Name: get_address_of_name
+            - Args: "address": String
+        - Name: get_address_of_name
             - Description: Get the address of the specified name.
-            - Args: "name": "<name>"
-        6. Name: get_xrefs_to
+            - Args: "name": String
+        - Name: get_xrefs_to
             - Description: Get the cross-references to the specified address.
-            - Args: "address": "<address>"
-        7. Name: get_xrefs_from
+            - Args: "address": String
+        - Name: get_xrefs_from
             - Description: Get the cross-references from the specified address.
-            - Args: "address": "<address>"
-        8. Name: print
-            - Description: Print the specified message. Please be careful because it's a string that will be included in the json
-            - Args: "message": "<message>"
-        9. Name: none
+            - Args: "address": String
+        - Name: none
             - Description: Do nothing. Use it when a series of tasks are completed.
-            - Args: None
-        10. Name: set_comment
+            - Args: None: No arguments. but it should be included in the json like {"args": {}}
+        - Name: set_comment
             - Description: Set a comment at the specified address.
-            - Args: "address": "<address>", "comment": "<comment>"
+            - Args: "address": String, "comment": String
                     
         Resources:
         Access to loaded binary and IDA API for analysis.
         Ability to see user's current view/position in IDA Pro.
         Knowledge base on reverse engineering concepts and common techniques.
         Also you can use multiple commands.
-        Memory of previous commands executed and their results during the current conversation.
 
         Performance Evaluation:
         Reflect on how well your suggestions assisted the user in their reverse engineering task.
@@ -119,11 +124,11 @@ class IDAAssistant(ida_idaapi.plugin_t):
             "command": [
                 {
                     "name": "command name",
-                    "args": {"arg name": "value"}
+                    "args": {"arg name": value}
                 }
             ]
         }
-
+        
         Ensure the response can be parsed by Python json.loads. 
         Always strictly adhere to the specified JSON response format, and do not deviate from it under any circumstances.
         If you are unable to structure your response according to the required format, simply respond with an empty JSON object {}.
@@ -131,7 +136,7 @@ class IDAAssistant(ida_idaapi.plugin_t):
         """
         
         messages = self.message_history.copy()
-        messages.append({"role": "user", "content": query})
+        messages.append({"role": role, "content": query})
 
         try:
             response = self.client.messages.create(
@@ -145,7 +150,7 @@ class IDAAssistant(ida_idaapi.plugin_t):
             assistant_reply = response.content[0].text.strip().replace("```json\n", "").replace("```\n", "").strip()
             print(assistant_reply)
 
-            self.message_history.append({"role": "user", "content": query})
+            self.message_history.append({"role": role, "content": query})
             self.message_history.append({"role": "assistant", "content": assistant_reply})            
             self.chat_history.append(f"<b>User:</b> {query}")             
             ida_kernwin.execute_sync(functools.partial(cb, response=assistant_reply), ida_kernwin.MFF_WRITE)
@@ -154,10 +159,10 @@ class IDAAssistant(ida_idaapi.plugin_t):
             traceback_details = traceback.format_exc()
             print(traceback_details)
 
-    def query_model_async(self, query, cb, additional_model_options=None):
+    def query_model_async(self, role, query, cb, additional_model_options=None):
         if additional_model_options is None:
             additional_model_options = {}
-        t = threading.Thread(target=self.query_model, args=[query, cb, additional_model_options])
+        t = threading.Thread(target=self.query_model, args=[role, query, cb, additional_model_options])
         t.start()
 
 class AssistantWidget(ida_kernwin.PluginForm):
@@ -199,125 +204,203 @@ class AssistantWidget(ida_kernwin.PluginForm):
             
             prompt = f"{user_message}\nCurrent address: {hex(current_address)}\n"
             
-            self.assistant.query_model_async(prompt, self.OnResponseReceived, additional_model_options={"max_tokens": 1000})
+            self.assistant.query_model_async("user", prompt, self.OnResponseReceived, additional_model_options={"max_tokens": 1000})
     
     def OnResponseReceived(self, response):
         try:
             assistant_reply = self.ParseResponse(response)
 
-            # check assistant_reply is {}
+            if assistant_reply is None:
+                self.chat_history.append(f"<b>System Message:</b> Failed to parse assistant response.")
+                return
+
             if not assistant_reply:
                 self.chat_history.append(f"<b>System Message:</b> No response from assistant.")
                 return
-            
+
             self.chat_history.append(f"<b>Assistant speak:</b> {assistant_reply['thoughts']['speak']}")
 
             commands = assistant_reply['command']
+            command_results = {}
 
-            command_results = []
             for command in commands:
                 command_name = command['name']
                 if command_name == "none":
-                    return
-                
-                if command.get("reason") != None:
-                    self.PrintOutput(f"Command Reasoning: {command['reason']}")
-                
+                    continue
+
                 command_args = command['args']
-                
-                if command_name == "get_disassembly":
-                    start_address = int(command_args["start_address"], 16)
-                    end_address = int(command_args["end_address"], 16)
-                    
-                    disassembly = ""
-                    while start_address < end_address:
-                        disassembly += f"{hex(start_address)}: {idc.GetDisasm(start_address)}\n"
-                        start_address = idc.next_head(start_address)                    
-                    command_results.append(f"get_disassembly result:\n{disassembly}")
-                elif command_name == "decompile":
-                    address = int(command_args["address"], 16)
-                    function = idc.get_func_attr(address, idc.FUNCATTR_START)
-                    if function:
-                        decompiled_code = str(ida_hexrays.decompile(function))
-                        command_results.append(f"decompile result:\n{decompiled_code}")
-                    else:
-                        command_results.append(f"decompile result:\nNo function found at address {hex(address)}")
-                        self.PrintOutput(f"No function found at address {hex(address)}")
-                elif command_name == "rename_address":
-                    address = int(command_args["address"], 16)
-                    new_name = command_args["new_name"]
-                    old_name = command_args["old_name"]
-                    if new_name and old_name:
-                        ida_hexrays.rename_lvar(address, old_name, new_name)
-                        result = f"Renamed function at {hex(address)}: '{old_name}' to '{new_name}'"
-                        self.PrintOutput(result)
-                        command_results.append(f"rename_address result:\n{result}")
-                elif command_name == "get_function_start_end_address":
-                    address = int(command_args["address"], 16)
-                    function = idc.get_func_attr(address, idc.FUNCATTR_START)
-                    if function:
-                        start_address = idc.get_func_attr(address, idc.FUNCATTR_START)
-                        end_address = idc.get_func_attr(address, idc.FUNCATTR_END)
-                        result = f"Function at {hex(address)} starts at {hex(start_address)} and ends at {hex(end_address)}"
-                        command_results.append(f"get_function_start_end_address result:\n{result}")
-                        self.PrintOutput(result)
-                    else:
-                        command_results.append(f"get_function_start_end_address result:\nNo function found at address {hex(address)}")
-                        self.PrintOutput(f"No function found at address {hex(address)}")
-                elif command_name == "get_address_of_name":
-                    name = command_args["name"]
-                    address = idc.get_name_ea_simple(name)
-                    if address != idc.BADADDR:
-                        result = f"Address of {name} is {hex(address)}"
-                        self.PrintOutput(result)
-                        command_results.append(f"get_address_of_name result:\n{result}")
-                    else:
-                        command_results.append(f"get_address_of_name result:\nNo address found for name {name}")
-                        self.PrintOutput(f"No address found for name {name}")
-                elif command_name == "get_xrefs_to":
-                    address = int(command_args["address"], 16)
-                    xrefs = idautils.XrefsTo(address)
-                    result = f"Xrefs to {hex(address)}:\n"
-                    for xref in xrefs:
-                        result += f"{hex(xref.frm)}\n"
-                    command_results.append(f"get_xrefs_to result:\n{result}")
-                    self.PrintOutput(result)
-                elif command_name == "get_xrefs_from":
-                    address = int(command_args["address"], 16)
-                    xrefs = idautils.XrefsFrom(address)
-                    result = f"Xrefs from {hex(address)}:\n"
-                    for xref in xrefs:
-                        result += f"{hex(xref.to)}\n"
-                    command_results.append(f"get_xrefs_from result:\n{result}")
-                    self.PrintOutput(result)
-                    pass
-                elif command_name == "print":
-                    message = command_args["message"]
-                    self.PrintOutput(message)
-                elif command_name == "set_comment":
-                    address = int(command_args["address"], 16)
-                    comment = command_args["comment"]
-                    idc.set_cmt(address, comment, 1)
-                    result = f"Set comment at {hex(address)}: {comment}"
-                    self.PrintOutput(result)
+
+                command_handler = getattr(self, f"handle_{command_name}", None)
+                if command_handler:
+                    command_results[command_name] = command_handler(command_args)
                 else:
                     self.PrintOutput(f"Unknown command: {command_name}")
-            
+                    command_results[command_name] = None
+
             query = ""
-            for result in command_results:
-                query += result + "\n\n"
-            
-            if len(command_results) > 0:
-                self.assistant.query_model_async(f"{query}", self.OnResponseReceived, additional_model_options={"max_tokens": 1000})
+            for command_name, result in command_results.items():
+                if result is not None:
+                    query += f"{command_name} result:\n{json.dumps(result)}\n\n"
+
+            if len(query) > 0:
+                self.assistant.query_model_async("user", f"{query}", self.OnResponseReceived, additional_model_options={"max_tokens": 1000})
 
         except Exception as e:
-            if "Expecting value: line" in str(e) or "Extra data: line" in str(e):
-                self.chat_history.append(f"<b>Assistant speak:</b> {response}")
+            traceback_details = traceback.format_exc()
+            print(traceback_details)
+            self.PrintOutput(f"Error parsing assistant response: {str(e)}")
+            self.assistant.query_model_async("user", f"Error parsing response. please retry:\n {str(e)}", self.OnResponseReceived, additional_model_options={"max_tokens": 1000})
+                
+    def handle_get_disassembly(self, args):
+        try:
+            start_address = int(args["start_address"], 16)
+            end_address = int(args["end_address"], 16)
+
+            disassembly = ""
+            while start_address < end_address:
+                disassembly += f"{hex(start_address)}: {idc.GetDisasm(start_address)}\n"
+                start_address = idc.next_head(start_address)
+            return disassembly
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_get_disassembly_function(self, args):
+        try:
+            name = args["name"]
+            address = idc.get_name_ea_simple(name)
+            if address != idc.BADADDR:
+                start_address = function.start_ea
+                end_address = function.end_ea
+
+                disassembly = ""
+                while start_address < end_address:
+                    disassembly += f"{hex(start_address)}: {idc.GetDisasm(start_address)}\n"
+                    start_address = idc.next_head(start_address)
+                return disassembly
+            return f"No function found at address {name}"
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_decompile_address(self, args):
+        try:
+            address = int(args["address"], 16)
+            function = idaapi.get_func(address)
+            if function:
+                decompiled_code = idaapi.decompile(function)
+                if decompiled_code:
+                    return str(decompiled_code)
+            return f"No function found at address {hex(address)}"
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_decompile_function(self, args):
+        try:
+            name = args["name"]
+            address = idc.get_name_ea_simple(name)
+            if address != idc.BADADDR:
+                function = idaapi.get_func(function.start_ea)
+                if function:
+                    decompiled_code = idaapi.decompile(function)
+                    if decompiled_code:
+                        return str(decompiled_code)
+                else:
+                    self.PrintOutput(f"No function found at address {name}")
+            return None
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_rename_address(self, args):
+        try:
+            address = int(args["address"], 16)
+            new_name = args["new_name"]
+            old_name = args["old_name"]
+            if new_name and old_name:
+                ida_hexrays.rename_lvar(address, old_name, new_name)
+                result = f"Renamed address {hex(address)} from '{old_name}' to '{new_name}'"
+                self.PrintOutput(result)
+                return result
+            return None
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_get_function_start_end_address(self, args):
+        try:
+            address = int(args["address"], 16)
+            function = idaapi.get_func(address)
+            if function:
+                start_address = hex(function.start_ea)
+                end_address = hex(function.end_ea)
+                result = {"start_address": start_address, "end_address": end_address}
+                return result
             else:
-                self.PrintOutput(f"Error parsing assistant response: {str(e)}")
-            
+                self.PrintOutput(f"No function found at address {hex(address)}")
+            return f"No function found at address {hex(address)}"
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_get_address_of_name(self, args):
+        try:
+            name = args["name"]
+            address = idc.get_name_ea_simple(name)
+            if address != idc.BADADDR:
+                result = hex(address)
+                # self.PrintOutput(f"Address of {name}: {result}")
+                return result
+            else:
+                self.PrintOutput(f"No address found for name {name}")
+            return None
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_get_xrefs_to(self, args):
+        try:
+            address = int(args["address"], 16)
+            xrefs = [hex(xref.frm) for xref in idautils.XrefsTo(address)]
+            result = xrefs
+            # self.PrintOutput(f"Xrefs to {hex(address)}:\n{', '.join(result)}")
+            return result
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_get_xrefs_from(self, args):
+        try:
+            address = int(args["address"], 16)
+            xrefs = [hex(xref.to) for xref in idautils.XrefsFrom(address)]
+            result = xrefs
+            self.PrintOutput(f"Xrefs from {hex(address)}:\n{', '.join(result)}")
+            return result
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def handle_print(self, args):
+        message = args["message"]
+        self.PrintOutput(message)
+        return None
+
+    def handle_set_comment(self, args):
+        try:
+            address = int(args["address"], 16)
+            comment = args["comment"]
+            idc.set_cmt(address, comment, 1)
+            result = f"Set comment at {hex(address)}: {comment}"
+            self.PrintOutput(result)
+            return None
+        except Exception as e:
+            return f"Error: {str(e)}"
+    
     def ParseResponse(self, response):
-        return json.loads(response)
+        try:
+            parsed_response = json.loads(response)
+            return parsed_response
+        except json.JSONDecodeError as e:
+            traceback_details = traceback.format_exc()
+            print(traceback_details)
+            raise e
+        except Exception as e:
+            print(str(e))
+            traceback_details = traceback.format_exc()
+            print(traceback_details)
+            raise e
                 
     def PrintOutput(self, output_str):
         print(output_str)
