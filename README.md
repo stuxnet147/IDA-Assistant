@@ -1,5 +1,5 @@
 # IDA Assistant (WIP)
-IDA Assistant is an IDA Pro plugin that leverages the power of Anthropic's AI models to assist users in reverse engineering and binary analysis tasks. The plugin integrates with IDA Pro and provides an interactive chat interface where users can ask questions, seek guidance, and receive intelligent suggestions to support their reverse engineering workflow.
+IDA Assistant is an IDA Pro plugin that leverages the power of Anthropic's Claude-3 models to assist users in reverse engineering and binary analysis tasks. The plugin integrates with IDA Pro and provides an interactive chat interface where users can ask questions, seek guidance, and receive intelligent suggestions to support their reverse engineering workflow.
 
 ## Features
 - AI-powered assistance for reverse engineering tasks in IDA Pro
@@ -23,7 +23,7 @@ git clone https://github.com/yourusername/ida-assistant.git
 pip install anthropic
 ```
 
-- Open the ida_assistant.py file and replace <YOUR API KEY> with your actual Anthropic API key.
+- Open the ida_assistant.py file and replace <YOUR API KEY> with your actual Anthropic(Claude) API key.
 - Copy the ida_assistant.py file to your IDA Pro plugins directory.
 - Launch IDA Pro and enable the "IDA Assistant" plugin from the "Edit" menu.
 ## Usage
