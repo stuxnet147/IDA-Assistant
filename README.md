@@ -1,4 +1,4 @@
-# IDA Assistant
+# IDA Assistant (WIP)
 IDA Assistant is an IDA Pro plugin that leverages the power of Anthropic's AI models to assist users in reverse engineering and binary analysis tasks. The plugin integrates with IDA Pro and provides an interactive chat interface where users can ask questions, seek guidance, and receive intelligent suggestions to support their reverse engineering workflow.
 
 ## Features
