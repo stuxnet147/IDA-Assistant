@@ -15,9 +15,13 @@ IDA Assistant is an IDA Pro plugin that leverages the power of Anthropic's AI mo
 
 ## Installation
 ### Clone the repository:
-``git clone https://github.com/yourusername/ida-assistant.git``
-### Install the required dependencies:
-``pip install -r requirements.txt``
+```sh
+git clone https://github.com/yourusername/ida-assistant.git
+```
+### Install the dependencies:
+```sh
+pip install anthropic
+```
 
 Open the ida_assistant.py file and replace <YOUR API KEY> with your actual Anthropic API key.
 Copy the ida_assistant.py file to your IDA Pro plugins directory.
