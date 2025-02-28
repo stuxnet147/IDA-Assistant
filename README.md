@@ -16,7 +16,7 @@ IDA Assistant is an IDA Pro plugin that leverages the power of Anthropic's Claud
 ## Installation
 ### Clone the repository:
 ```sh
-git clone https://github.com/yourusername/ida-assistant.git
+git clone https://github.com/stuxnet147/ida-assistant.git
 ```
 ### Install the dependencies:
 ```sh
